@@ -49,7 +49,7 @@ void show_utf8_bits ( codes *code )
 	printf( "\n" );
 }
 
-void decode_utf8 ( db *data )
+void encode_utf8 ( db *data )
 {
 	data->utf8_code.hex = 0x00000000; // reset 4-bytes
 
@@ -99,6 +99,41 @@ void decode_utf8 ( db *data )
 	}
 }
 
+void decode_utf8 ( db *data )
+{
+	data->unicode.hex = 0x00000000; // reset 4-bytes
+	unsigned char first_byte = data->utf8_code.hex & 0xF0;
+
+	if ( 0 == (first_byte & 0x80) )
+	{
+		// 1-bytes, use 7-bits, a.k.a ASCII, 0x0*******
+		data->use_n_byte = 1;
+	}
+	else if ( first_byte == 0xc0 )
+	{
+		// 2-bytes, use 11-bits, 110***** 10******
+		data->use_n_byte = 2;
+	}
+	else if ( first_byte == 0xe0 )
+	{
+		// 3-bytes, use 16-bits, 1110**** 10****** 10******
+		data->use_n_byte = 3;
+		data->unicode.hex |= ((data->utf8_code.bytes[0] & 0x0F) << 12);
+		data->unicode.hex |= ((data->utf8_code.bytes[1] & 0x3F) << 6);
+		data->unicode.hex |= ((data->utf8_code.bytes[2] & 0x3F));
+	}
+	else if ( first_byte == 0xF0 )
+	{
+		// 4-bytes, use 21-bits, 11110*** 10****** 10****** 10******
+		data->use_n_byte = 4;
+	}
+	else
+	{
+		fprintf( stderr, "[Error] cannot convert utf-8 code=%x\n", data->utf8_code.hex );
+		abort();
+	}
+}
+
 void unit_test ()
 {
 	/*
@@ -116,10 +151,10 @@ void unit_test ()
 	show_utf8_bits ( &(data.unicode) );
 	printf( "\n" );
 
-	decode_utf8 ( &data );
+	encode_utf8 ( &data );
 
 	show_utf8_bits ( &(data.utf8_code) );
-	printf( "decode result = " );
+	printf( "encode result = " );
 	fwrite( data.utf8_code.bytes, sizeof(char), data.use_n_byte, stdout );
 	fwrite( "\n", sizeof(char), 1, stdout );
 }
@@ -130,7 +165,7 @@ void convert_unicode_to_utf8 ( unsigned unicode )
 
 	data.unicode.hex = unicode;
 
-	decode_utf8 ( &data );
+	encode_utf8 ( &data );
 
 	if ( g_opts.debug )
 	{
@@ -138,11 +173,35 @@ void convert_unicode_to_utf8 ( unsigned unicode )
 		show_utf8_bits ( &(data.unicode) );
 		printf( "\n" );
 		show_utf8_bits ( &(data.utf8_code) );
-		printf( "\ndecode result (%d bytes) = ", data.use_n_byte );
+		printf( "\nencode result (%d bytes) = ", data.use_n_byte );
 	}
 
 	fwrite( data.utf8_code.bytes, sizeof(char), data.use_n_byte, stdout );
 	fwrite( "\n", sizeof(char), 1, stdout );
+}
+
+void convert_utf8_to_unicode ( unsigned utf8 )
+{
+	db data;
+
+	data.utf8_code.hex = utf8;
+
+	decode_utf8 ( &data );
+
+	if ( g_opts.debug )
+	{
+		printf( "utf8=" );
+		fwrite( &(data.utf8_code.hex), sizeof(char), 4, stdout );
+		fwrite( "\n", sizeof(char), 1, stdout );
+
+		show_utf8_bits ( &(data.utf8_code) );
+		printf( "\n" );
+		show_utf8_bits ( &(data.unicode) );
+		printf( "\n" );
+
+		printf( "decode result (%d bytes) = U+%x\n", data.use_n_byte, data.unicode.hex );
+	}
+
 }
 
 int main ( int argc, char **argv )
@@ -155,6 +214,7 @@ int main ( int argc, char **argv )
 	}
 	else if ( CONVERTER_DECODE == g_opts.mode )
 	{
+		convert_utf8_to_unicode ( g_opts.code );
 	}
 
 	return EXIT_SUCCESS;

@@ -85,7 +85,7 @@ void parse_cmd_options ( int argc, char **argv )
 
 			case 'd':
 				g_opts.mode = CONVERTER_DECODE;
-				g_opts.code = (unsigned int *) optarg;
+				g_opts.code = *(unsigned int *) optarg;
 				break;
 
 			case '?':
