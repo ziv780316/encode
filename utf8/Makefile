@@ -29,7 +29,7 @@ MOVE       = mv -f
 #=================================================
 BIN_DIR       	  := bin
 LIB_DIR       	  := library
-TARGET            := symbol
+TARGET            := utf8
 
 #=================================================
 # Compile implicit rules
@@ -42,7 +42,7 @@ TARGET            := symbol
 #=================================================
 # Target rules
 #=================================================
-symbol: symbol.o
+utf8: utf8.o
 	$(LINKER) -o $@ $(LIB_DIR)/$(notdir $<) $(LIBS);\
 	$(MOVE) $@ $(BIN_DIR)
 
