@@ -35,16 +35,16 @@ TARGET            := utf8
 # Compile implicit rules
 #=================================================
 %.o:%.c
-	@echo "build $(basename $@) ..."
 	$(CC) -c $< -o $@ $(CFLAGS) $(INCLUDE)
 	@$(MOVE) $@ $(LIB_DIR) # @ means do not echo command
 
 #=================================================
 # Target rules
 #=================================================
-utf8: utf8.o
-	$(LINKER) -o $@ $(LIB_DIR)/$(notdir $<) $(LIBS);\
-	$(MOVE) $@ $(BIN_DIR)
+utf8: utf8.o opts.o
+	cd $(LIB_DIR);\
+	$(LINKER) -o $@ $^ $(LIBS);\
+	$(MOVE) $@ ../$(BIN_DIR)
 
 #=================================================
 # Phony rules
