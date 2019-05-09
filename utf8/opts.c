@@ -70,8 +70,7 @@ void parse_cmd_options ( int argc, char **argv )
 				break;
 
 			case 't':
-				unit_test();
-				exit( EXIT_SUCCESS );
+				g_opts.mode = CONVERTER_UNIT_TEST;
 				break;
 
 			case 's':

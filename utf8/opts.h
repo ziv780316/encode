@@ -7,7 +7,8 @@ typedef enum
 {
 	CONVERTER_NONE,
 	CONVERTER_ENCODE,
-	CONVERTER_DECODE
+	CONVERTER_DECODE,
+	CONVERTER_UNIT_TEST,
 
 } converter_mode;
 typedef struct
