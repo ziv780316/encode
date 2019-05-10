@@ -29,7 +29,7 @@ typedef struct
 void show_utf8_bits ( codes *code )
 {
 	// hex
-	printf( "byte1 byte2 byte3 byte4\n" );
+	printf( "(LSB) byte1 byte2 byte3 byte4 (MSB)\n" );
 	for ( int i = 0; i < 4; ++i )
 	{
 		printf( "%hhx", (code->bytes[i] >> 4) & 0x0F );
@@ -211,14 +211,27 @@ void unit_test ()
 	convert_unicode_to_utf8( 0x1f3b9 );
 
 	printf ( "\n* progress bar\n" );
-	db data;
-	data.unicode.hex = 0x2708;
-	encode_utf8 ( &data );
-	for ( int i = 0; i < 100; ++i )
+	db data1 = { .unicode.hex = 0x2708 }; // ✈
+	db data2 = { .unicode.hex = 0x26FF }; // ⛿
+	encode_utf8 ( &data1 );
+	encode_utf8 ( &data2 );
+	int progress_width = 50;
+	int i, j, k;
+	for ( int i = 0; i < progress_width; ++i )
 	{
-		usleep( 500000 ); // 0.5 second
-		printf( "\r%*c", i, ' ' );
-		fwrite( data.utf8_code.bytes, sizeof(char), data.use_n_byte, stdout );
+		usleep( 100000 ); // 0.1 second
+		printf( "\r" ); // back to '\n'
+		for ( j = 0; j < i; ++j )
+		{
+			printf( "%c", '.' );
+		}
+		fwrite( data1.utf8_code.bytes, sizeof(char), data1.use_n_byte, stdout );
+		for ( k = j; k < progress_width; ++k )
+		{
+			printf( "%c", ' ' );
+		}
+		fwrite( data2.utf8_code.bytes, sizeof(char), data2.use_n_byte, stdout );
+		printf( "  [%2d%%]", (int)((100 * (i + 1)) / (double)progress_width) );
 		fflush( stdout );
 	}
 	printf( "\n");
