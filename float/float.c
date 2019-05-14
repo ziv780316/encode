@@ -6,7 +6,7 @@
 typedef union 
 {
 	double num;
-	long long int hex;
+	unsigned long long hex;
 	char bytes[8];
 } codes;
 
