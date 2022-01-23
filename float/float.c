@@ -11,6 +11,7 @@
 
 char *get_double_bit_str( double x );
 void denormal_number_test ();
+void roundoff_guard_bit_test();
 void add_roundoff_test();
 
 char *get_double_bit_str( double x ) 
@@ -70,6 +71,322 @@ void denormal_number_test ()
 	printf( "x_min / 2         =%.15le (%s)\n", x_min / 2, get_double_bit_str( x_min / 2) );
 	printf( "\n" );
 	_mm_setcsr( _mm_getcsr() & ~_MM_FLUSH_ZERO_ON );
+}
+
+void roundoff_guard_bit_test ()
+{
+	uint64_t e;
+	uint64_t hex;
+	double x;
+	double x_odd;
+	double x_001;
+	double x_010;
+	double x_011;
+	double x_100;
+	double x_101;
+	double x_110;
+	double x_111;
+	double y_001;
+	double y_010;
+	double y_011;
+	double y_100;
+	double y_101;
+	double y_110;
+	double y_111;
+	double y_100_odd;
+
+	printf( "===========================================\n" );
+	printf( "roundoff guard bit test\n" );
+	printf( "===========================================\n" );
+
+	e = 0;
+	hex = 0x0000000000000000ULL | ((e + 1023) << 52); 
+	x = *(double *) &hex;
+
+	e = 0;
+	hex = 0x00000000000000001LL | ((e + 1023) << 52); 
+	x_odd = *(double *) &hex;
+
+	e = -3;
+	hex = 0x0000000000000001ULL | ((e + 1023) << 52); 
+	x_001 = *(double *) &hex;
+
+	e = -3;
+	hex = 0x0000000000000002ULL | ((e + 1023) << 52); 
+	x_010 = *(double *) &hex;
+
+	e = -3;
+	hex = 0x0000000000000003ULL | ((e + 1023) << 52); 
+	x_011 = *(double *) &hex;
+
+	e = -3;
+	hex = 0x0000000000000004ULL | ((e + 1023) << 52); 
+	x_100 = *(double *) &hex;
+
+	e = -3;
+	hex = 0x0000000000000005ULL | ((e + 1023) << 52); 
+	x_101 = *(double *) &hex;
+
+	e = -3;
+	hex = 0x0000000000000006ULL | ((e + 1023) << 52); 
+	x_110 = *(double *) &hex;
+
+	e = -3;
+	hex = 0x0000000000000007ULL | ((e + 1023) << 52); 
+	x_111 = *(double *) &hex;
+
+	// guard round stick bit rounding action table 
+	char *default_xmm_round_mode = "round_to_nearest";
+	unsigned int rounding_mode = _MM_GET_ROUNDING_MODE();
+	if ( rounding_mode & _MM_ROUND_UP )
+	{
+		default_xmm_round_mode = "round to +inf";
+	}
+	if ( rounding_mode & _MM_ROUND_DOWN )
+	{
+		default_xmm_round_mode = "round to -inf";
+	}
+	if ( rounding_mode & _MM_ROUND_TOWARD_ZERO )
+	{
+		default_xmm_round_mode = "round to 0";
+	}
+	y_001 = x + x_001;
+	y_010 = x + x_010;
+	y_011 = x + x_011;
+	y_100 = x + x_100;
+	y_100_odd = x_odd + x_100; // round to even (if LSB of mantissa is 1 then round up, therefore the LSB becomd 10 (i.e. even 2))
+	y_101 = x + x_101;
+	y_110 = x + x_110;
+	y_111 = x + x_111;
+	printf( "* guard round stick bit rounding action table (mode=%s)):\n", default_xmm_round_mode );
+	printf( "x_GRS    =result\n" );
+	printf( "x        =%.15le (%s)\n", x, get_double_bit_str(x) );
+	printf( "x_001    =%.15le (%s)\n", x_001, get_double_bit_str(x_001) );
+	printf( "x_010    =%.15le (%s)\n", x_010, get_double_bit_str(x_010) );
+	printf( "x_011    =%.15le (%s)\n", x_011, get_double_bit_str(x_011) );
+	printf( "x_100    =%.15le (%s)\n", x_100, get_double_bit_str(x_100) );
+	printf( "x_101    =%.15le (%s)\n", x_101, get_double_bit_str(x_101) );
+	printf( "x_110    =%.15le (%s)\n", x_110, get_double_bit_str(x_110) );
+	printf( "x_111    =%.15le (%s)\n", x_111, get_double_bit_str(x_111) );
+	printf( "y_001    =%.15le (%s)\n", y_001, get_double_bit_str(y_001) );
+	printf( "y_010    =%.15le (%s)\n", y_010, get_double_bit_str(y_010) );
+	printf( "y_011    =%.15le (%s)\n", y_011, get_double_bit_str(y_011) );
+	printf( "y_100    =%.15le (%s)\n", y_100, get_double_bit_str(y_100) );
+	printf( "y_100_odd=%.15le (%s)\n", y_100_odd, get_double_bit_str(y_100_odd) );
+	printf( "y_101    =%.15le (%s)\n", y_101, get_double_bit_str(y_101) );
+	printf( "y_110    =%.15le (%s)\n", y_110, get_double_bit_str(y_110) );
+	printf( "y_111    =%.15le (%s)\n", y_111, get_double_bit_str(y_111) );
+	printf( "\n" );
+
+	y_001 = -x + -x_001;
+	y_010 = -x + -x_010;
+	y_011 = -x + -x_011;
+	y_100 = -x + -x_100;
+	y_100_odd = -x_odd + -x_100; // round to even (if LSB of mantissa is 1 then round up, therefore the LSB becomd 10 (i.e. even 2))
+	y_101 = -x + -x_101;
+	y_110 = -x + -x_110;
+	y_111 = -x + -x_111;
+	printf( "* guard round stick bit rounding action table (mode=%s)):\n", default_xmm_round_mode );
+	printf( "x_GRS    =result\n" );
+	printf( "-x       =%.15le (%s)\n", -x, get_double_bit_str(-x) );
+	printf( "-x_001   =%.15le (%s)\n", -x_001, get_double_bit_str(-x_001) );
+	printf( "-x_010   =%.15le (%s)\n", -x_010, get_double_bit_str(-x_010) );
+	printf( "-x_011   =%.15le (%s)\n", -x_011, get_double_bit_str(-x_011) );
+	printf( "-x_100   =%.15le (%s)\n", -x_100, get_double_bit_str(-x_100) );
+	printf( "-x_101   =%.15le (%s)\n", -x_101, get_double_bit_str(-x_101) );
+	printf( "-x_110   =%.15le (%s)\n", -x_110, get_double_bit_str(-x_110) );
+	printf( "-x_111   =%.15le (%s)\n", -x_111, get_double_bit_str(-x_111) );
+	printf( "y_001    =%.15le (%s)\n", y_001, get_double_bit_str(y_001) );
+	printf( "y_010    =%.15le (%s)\n", y_010, get_double_bit_str(y_010) );
+	printf( "y_011    =%.15le (%s)\n", y_011, get_double_bit_str(y_011) );
+	printf( "y_100    =%.15le (%s)\n", y_100, get_double_bit_str(y_100) );
+	printf( "y_100_odd=%.15le (%s)\n", y_100_odd, get_double_bit_str(y_100_odd) );
+	printf( "y_101    =%.15le (%s)\n", y_101, get_double_bit_str(y_101) );
+	printf( "y_110    =%.15le (%s)\n", y_110, get_double_bit_str(y_110) );
+	printf( "y_111    =%.15le (%s)\n", y_111, get_double_bit_str(y_111) );
+	printf( "\n" );
+
+	if ( !(rounding_mode & _MM_ROUND_UP) )
+	{
+		_MM_SET_ROUNDING_MODE( _MM_ROUND_UP );
+		y_001 = x + x_001;
+		y_010 = x + x_010;
+		y_011 = x + x_011;
+		y_100 = x + x_100;
+		y_100_odd = x_odd + x_100; // round to even (if LSB of mantissa is 1 then round up, therefore the LSB becomd 10 (i.e. even 2))
+		y_101 = x + x_101;
+		y_110 = x + x_110;
+		y_111 = x + x_111;
+		printf( "* guard round stick bit rounding action table (mode=%s)):\n", "round to +inf" );
+		printf( "x_GRS    =result\n" );
+		printf( "x        =%.15le (%s)\n", x, get_double_bit_str(x) );
+		printf( "x_001    =%.15le (%s)\n", x_001, get_double_bit_str(x_001) );
+		printf( "x_010    =%.15le (%s)\n", x_010, get_double_bit_str(x_010) );
+		printf( "x_011    =%.15le (%s)\n", x_011, get_double_bit_str(x_011) );
+		printf( "x_100    =%.15le (%s)\n", x_100, get_double_bit_str(x_100) );
+		printf( "x_101    =%.15le (%s)\n", x_101, get_double_bit_str(x_101) );
+		printf( "x_110    =%.15le (%s)\n", x_110, get_double_bit_str(x_110) );
+		printf( "x_111    =%.15le (%s)\n", x_111, get_double_bit_str(x_111) );
+		printf( "y_001    =%.15le (%s)\n", y_001, get_double_bit_str(y_001) );
+		printf( "y_010    =%.15le (%s)\n", y_010, get_double_bit_str(y_010) );
+		printf( "y_011    =%.15le (%s)\n", y_011, get_double_bit_str(y_011) );
+		printf( "y_100    =%.15le (%s)\n", y_100, get_double_bit_str(y_100) );
+		printf( "y_100_odd=%.15le (%s)\n", y_100_odd, get_double_bit_str(y_100_odd) );
+		printf( "y_101    =%.15le (%s)\n", y_101, get_double_bit_str(y_101) );
+		printf( "y_110    =%.15le (%s)\n", y_110, get_double_bit_str(y_110) );
+		printf( "y_111    =%.15le (%s)\n", y_111, get_double_bit_str(y_111) );
+		printf( "\n" );
+
+		y_001 = -x + -x_001;
+		y_010 = -x + -x_010;
+		y_011 = -x + -x_011;
+		y_100 = -x + -x_100;
+		y_100_odd = -x_odd + -x_100; // round to even (if LSB of mantissa is 1 then round up, therefore the LSB becomd 10 (i.e. even 2))
+		y_101 = -x + -x_101;
+		y_110 = -x + -x_110;
+		y_111 = -x + -x_111;
+		printf( "* guard round stick bit rounding action table (mode=%s)):\n", "round to +inf" );
+		printf( "x_GRS    =result\n" );
+		printf( "-x       =%.15le (%s)\n", -x, get_double_bit_str(-x) );
+		printf( "-x_001   =%.15le (%s)\n", -x_001, get_double_bit_str(-x_001) );
+		printf( "-x_010   =%.15le (%s)\n", -x_010, get_double_bit_str(-x_010) );
+		printf( "-x_011   =%.15le (%s)\n", -x_011, get_double_bit_str(-x_011) );
+		printf( "-x_100   =%.15le (%s)\n", -x_100, get_double_bit_str(-x_100) );
+		printf( "-x_101   =%.15le (%s)\n", -x_101, get_double_bit_str(-x_101) );
+		printf( "-x_110   =%.15le (%s)\n", -x_110, get_double_bit_str(-x_110) );
+		printf( "-x_111   =%.15le (%s)\n", -x_111, get_double_bit_str(-x_111) );
+		printf( "y_001    =%.15le (%s)\n", y_001, get_double_bit_str(y_001) );
+		printf( "y_010    =%.15le (%s)\n", y_010, get_double_bit_str(y_010) );
+		printf( "y_011    =%.15le (%s)\n", y_011, get_double_bit_str(y_011) );
+		printf( "y_100    =%.15le (%s)\n", y_100, get_double_bit_str(y_100) );
+		printf( "y_100_odd=%.15le (%s)\n", y_100_odd, get_double_bit_str(y_100_odd) );
+		printf( "y_101    =%.15le (%s)\n", y_101, get_double_bit_str(y_101) );
+		printf( "y_110    =%.15le (%s)\n", y_110, get_double_bit_str(y_110) );
+		printf( "y_111    =%.15le (%s)\n", y_111, get_double_bit_str(y_111) );
+		printf( "\n" );
+	}
+
+	if ( !(rounding_mode & _MM_ROUND_DOWN) )
+	{
+		_MM_SET_ROUNDING_MODE( _MM_ROUND_DOWN );
+		y_001 = x + x_001;
+		y_010 = x + x_010;
+		y_011 = x + x_011;
+		y_100 = x + x_100;
+		y_100_odd = x_odd + x_100; // round to even (if LSB of mantissa is 1 then round up, therefore the LSB becomd 10 (i.e. even 2))
+		y_101 = x + x_101;
+		y_110 = x + x_110;
+		y_111 = x + x_111;
+		printf( "* guard round stick bit rounding action table (mode=%s)):\n", "round to -inf" );
+		printf( "x_GRS    =result\n" );
+		printf( "x        =%.15le (%s)\n", x, get_double_bit_str(x) );
+		printf( "x_001    =%.15le (%s)\n", x_001, get_double_bit_str(x_001) );
+		printf( "x_010    =%.15le (%s)\n", x_010, get_double_bit_str(x_010) );
+		printf( "x_011    =%.15le (%s)\n", x_011, get_double_bit_str(x_011) );
+		printf( "x_100    =%.15le (%s)\n", x_100, get_double_bit_str(x_100) );
+		printf( "x_101    =%.15le (%s)\n", x_101, get_double_bit_str(x_101) );
+		printf( "x_110    =%.15le (%s)\n", x_110, get_double_bit_str(x_110) );
+		printf( "x_111    =%.15le (%s)\n", x_111, get_double_bit_str(x_111) );
+		printf( "y_001    =%.15le (%s)\n", y_001, get_double_bit_str(y_001) );
+		printf( "y_010    =%.15le (%s)\n", y_010, get_double_bit_str(y_010) );
+		printf( "y_011    =%.15le (%s)\n", y_011, get_double_bit_str(y_011) );
+		printf( "y_100    =%.15le (%s)\n", y_100, get_double_bit_str(y_100) );
+		printf( "y_100_odd=%.15le (%s)\n", y_100_odd, get_double_bit_str(y_100_odd) );
+		printf( "y_101    =%.15le (%s)\n", y_101, get_double_bit_str(y_101) );
+		printf( "y_110    =%.15le (%s)\n", y_110, get_double_bit_str(y_110) );
+		printf( "y_111    =%.15le (%s)\n", y_111, get_double_bit_str(y_111) );
+		printf( "\n" );
+
+		y_001 = -x + -x_001;
+		y_010 = -x + -x_010;
+		y_011 = -x + -x_011;
+		y_100 = -x + -x_100;
+		y_100_odd = -x_odd + -x_100; // round to even (if LSB of mantissa is 1 then round up, therefore the LSB becomd 10 (i.e. even 2))
+		y_101 = -x + -x_101;
+		y_110 = -x + -x_110;
+		y_111 = -x + -x_111;
+		printf( "* guard round stick bit rounding action table (mode=%s)):\n", "round to -inf" );
+		printf( "x_GRS    =result\n" );
+		printf( "-x       =%.15le (%s)\n", -x, get_double_bit_str(-x) );
+		printf( "-x_001   =%.15le (%s)\n", -x_001, get_double_bit_str(-x_001) );
+		printf( "-x_010   =%.15le (%s)\n", -x_010, get_double_bit_str(-x_010) );
+		printf( "-x_011   =%.15le (%s)\n", -x_011, get_double_bit_str(-x_011) );
+		printf( "-x_100   =%.15le (%s)\n", -x_100, get_double_bit_str(-x_100) );
+		printf( "-x_101   =%.15le (%s)\n", -x_101, get_double_bit_str(-x_101) );
+		printf( "-x_110   =%.15le (%s)\n", -x_110, get_double_bit_str(-x_110) );
+		printf( "-x_111   =%.15le (%s)\n", -x_111, get_double_bit_str(-x_111) );
+		printf( "y_001    =%.15le (%s)\n", y_001, get_double_bit_str(y_001) );
+		printf( "y_010    =%.15le (%s)\n", y_010, get_double_bit_str(y_010) );
+		printf( "y_011    =%.15le (%s)\n", y_011, get_double_bit_str(y_011) );
+		printf( "y_100    =%.15le (%s)\n", y_100, get_double_bit_str(y_100) );
+		printf( "y_100_odd=%.15le (%s)\n", y_100_odd, get_double_bit_str(y_100_odd) );
+		printf( "y_101    =%.15le (%s)\n", y_101, get_double_bit_str(y_101) );
+		printf( "y_110    =%.15le (%s)\n", y_110, get_double_bit_str(y_110) );
+		printf( "y_111    =%.15le (%s)\n", y_111, get_double_bit_str(y_111) );
+		printf( "\n" );
+	}
+
+	if ( !(rounding_mode & _MM_ROUND_TOWARD_ZERO) )
+	{
+		_MM_SET_ROUNDING_MODE( _MM_ROUND_TOWARD_ZERO );
+		y_001 = x + x_001;
+		y_010 = x + x_010;
+		y_011 = x + x_011;
+		y_100 = x + x_100;
+		y_100_odd = x_odd + x_100; // round to even (if LSB of mantissa is 1 then round up, therefore the LSB becomd 10 (i.e. even 2))
+		y_101 = x + x_101;
+		y_110 = x + x_110;
+		y_111 = x + x_111;
+		printf( "* guard round stick bit rounding action table (mode=%s)):\n", "round to 0" );
+		printf( "x_GRS    =result\n" );
+		printf( "x        =%.15le (%s)\n", x, get_double_bit_str(x) );
+		printf( "x_001    =%.15le (%s)\n", x_001, get_double_bit_str(x_001) );
+		printf( "x_010    =%.15le (%s)\n", x_010, get_double_bit_str(x_010) );
+		printf( "x_011    =%.15le (%s)\n", x_011, get_double_bit_str(x_011) );
+		printf( "x_100    =%.15le (%s)\n", x_100, get_double_bit_str(x_100) );
+		printf( "x_101    =%.15le (%s)\n", x_101, get_double_bit_str(x_101) );
+		printf( "x_110    =%.15le (%s)\n", x_110, get_double_bit_str(x_110) );
+		printf( "x_111    =%.15le (%s)\n", x_111, get_double_bit_str(x_111) );
+		printf( "y_001    =%.15le (%s)\n", y_001, get_double_bit_str(y_001) );
+		printf( "y_010    =%.15le (%s)\n", y_010, get_double_bit_str(y_010) );
+		printf( "y_011    =%.15le (%s)\n", y_011, get_double_bit_str(y_011) );
+		printf( "y_100    =%.15le (%s)\n", y_100, get_double_bit_str(y_100) );
+		printf( "y_100_odd=%.15le (%s)\n", y_100_odd, get_double_bit_str(y_100_odd) );
+		printf( "y_101    =%.15le (%s)\n", y_101, get_double_bit_str(y_101) );
+		printf( "y_110    =%.15le (%s)\n", y_110, get_double_bit_str(y_110) );
+		printf( "y_111    =%.15le (%s)\n", y_111, get_double_bit_str(y_111) );
+		printf( "\n" );
+
+		y_001 = -x + -x_001;
+		y_010 = -x + -x_010;
+		y_011 = -x + -x_011;
+		y_100 = -x + -x_100;
+		y_100_odd = -x_odd + -x_100; // round to even (if LSB of mantissa is 1 then round up, therefore the LSB becomd 10 (i.e. even 2))
+		y_101 = -x + -x_101;
+		y_110 = -x + -x_110;
+		y_111 = -x + -x_111;
+		printf( "* guard round stick bit rounding action table (mode=%s)):\n", "round to 0" );
+		printf( "x_GRS    =result\n" );
+		printf( "-x       =%.15le (%s)\n", -x, get_double_bit_str(-x) );
+		printf( "-x_001   =%.15le (%s)\n", -x_001, get_double_bit_str(-x_001) );
+		printf( "-x_010   =%.15le (%s)\n", -x_010, get_double_bit_str(-x_010) );
+		printf( "-x_011   =%.15le (%s)\n", -x_011, get_double_bit_str(-x_011) );
+		printf( "-x_100   =%.15le (%s)\n", -x_100, get_double_bit_str(-x_100) );
+		printf( "-x_101   =%.15le (%s)\n", -x_101, get_double_bit_str(-x_101) );
+		printf( "-x_110   =%.15le (%s)\n", -x_110, get_double_bit_str(-x_110) );
+		printf( "-x_111   =%.15le (%s)\n", -x_111, get_double_bit_str(-x_111) );
+		printf( "y_001    =%.15le (%s)\n", y_001, get_double_bit_str(y_001) );
+		printf( "y_010    =%.15le (%s)\n", y_010, get_double_bit_str(y_010) );
+		printf( "y_011    =%.15le (%s)\n", y_011, get_double_bit_str(y_011) );
+		printf( "y_100    =%.15le (%s)\n", y_100, get_double_bit_str(y_100) );
+		printf( "y_100_odd=%.15le (%s)\n", y_100_odd, get_double_bit_str(y_100_odd) );
+		printf( "y_101    =%.15le (%s)\n", y_101, get_double_bit_str(y_101) );
+		printf( "y_110    =%.15le (%s)\n", y_110, get_double_bit_str(y_110) );
+		printf( "y_111    =%.15le (%s)\n", y_111, get_double_bit_str(y_111) );
+		printf( "\n" );
+	}
+
+	_MM_SET_ROUNDING_MODE( rounding_mode );
 }
 
 void add_roundoff_test ()
@@ -155,6 +472,8 @@ void add_roundoff_test ()
 int main ( int argc, char **argv )
 {
 	denormal_number_test ();
+
+	roundoff_guard_bit_test();
 
 	add_roundoff_test();
 
