@@ -13,6 +13,7 @@ char *get_double_bit_str( double x );
 void denormal_number_test ();
 void roundoff_guard_bit_test();
 void add_roundoff_test();
+void mul_roundoff_test();
 
 char *get_double_bit_str( double x ) 
 {
@@ -397,7 +398,7 @@ void add_roundoff_test ()
 	double x_2;
 	double y;
 	double roundoff;
-	double roundoff_gmp;
+	double roundoff_exact;
 	double eps;
 
 	printf( "===========================================\n" );
@@ -417,7 +418,8 @@ void add_roundoff_test ()
 	x_2 = *(double *) &hex;
 
 	// eps test
-	y = x_1 - x_2;
+	_MM_SET_ROUNDING_MODE( _MM_ROUND_NEAREST );
+	y = x_1 + x_2;
 	printf( "* epsilon of float number arithmetic:\n" );
 	printf( "DBL_EPSILON=%.15le (%s)\n", DBL_EPSILON, get_double_bit_str(DBL_EPSILON) );
 	printf( "eps        =%.15le (%s)\n", eps, get_double_bit_str(eps) );
@@ -426,45 +428,230 @@ void add_roundoff_test ()
 	printf( "x_1 + x_2  =%.15le (%s)\n", y, get_double_bit_str(y) );
 	printf( "\n" );
 
-	// roundoff
+	// round off (truncate bit |0xffffff, G=1 R=1 S=1, error=0x1|000000-0x|ffffff=0x|000001)
 	e = 10;
 	hex = 0x000ffff000000000ULL | ((e + 1023) << 52); 
 	x_1 = *(double *) &hex;
 
 	e = -14;
-	hex = 0x000000000000ffffULL | ((e + 1023) << 52); 
+	hex = 0x0000000000ffffffULL | ((e + 1023) << 52); 
 	x_2 = *(double *) &hex;
 
 	y = x_1 + x_2;
 
-	e = -14-37;
-	hex = 0x000fffe000000000ULL | ((e + 1023) << 52); 
+	e = 10 - 52 - 24;
+	hex = (0x8000000000000000ULL) | ((e + 1023) << 52); 
 	roundoff = *(double *) &hex;
 
 	// calculate exact roundoff error by gmp
-	mpf_t x_1_gmp, x_2_gmp, y_gmp, exact_result_gmp;
+	mpf_t x_1_gmp, x_2_gmp, y_gmp, exact_result_gmp, roundoff_gmp;
 	mpf_init2( x_1_gmp, 256 );
 	mpf_init2( x_2_gmp, 256 );
 	mpf_init2( y_gmp, 256 );
 	mpf_init2( exact_result_gmp, 256 );
+	mpf_init2( roundoff_gmp, 256 );
 	mpf_init_set_d( x_1_gmp, x_1 );
 	mpf_init_set_d( x_2_gmp, x_2 );
 	mpf_init_set_d( y_gmp, y );
 	mpf_add( exact_result_gmp, x_1_gmp, x_2_gmp );
-	mpf_sub( exact_result_gmp, exact_result_gmp, y_gmp );
-	roundoff_gmp = mpf_get_d( exact_result_gmp );
+	mpf_sub( roundoff_gmp, exact_result_gmp, y_gmp );
+	roundoff_exact = mpf_get_d( roundoff_gmp );
 	mpf_clear( x_1_gmp );
 	mpf_clear( x_2_gmp );
 	mpf_clear( y_gmp );
 	mpf_clear( exact_result_gmp );
+	mpf_clear( roundoff_gmp );
 
 	// roundoff test
-	printf( "* add roundoff error in float number arithmetic:\n" );
+	printf( "* add roundoff error in float number arithmetic (GRS=111):\n" );
 	printf( "x_1         =%.15le (%s)\n", x_1, get_double_bit_str(x_1) );
-	printf( "x_2         =%.15le (%s)\n", x_2, get_double_bit_str( x_2) );
+	printf( "x_2         =%.15le (%s)\n", x_2, get_double_bit_str(x_2) );
 	printf( "x_1 + x_2   =%.15le (%s)\n", y, get_double_bit_str(y) );
 	printf( "roundoff    =%.15le (%s)\n", roundoff, get_double_bit_str(roundoff) );
-	printf( "roundoff_gmp=%.15le (%s)\n", roundoff_gmp, get_double_bit_str(roundoff_gmp) );
+	printf( "roundoff_gmp=%.15le (%s)\n", roundoff_exact, get_double_bit_str(roundoff_exact) );
+	printf( "\n" );
+}
+
+void mul_roundoff_test ()
+{
+	uint64_t e;
+	uint64_t hex;
+	double x_1;
+	double x_2;
+	double y;
+	double roundoff;
+	double roundoff_exact;
+	double eps;
+
+	printf( "===========================================\n" );
+	printf( "mul roundoff test\n" );
+	printf( "===========================================\n" );
+
+	// no round off
+	e = 10;
+	hex = 0x0000000000001100ULL | ((e + 1023) << 52); 
+	x_1 = *(double *) &hex;
+
+	e = -5;
+	hex = 0x0000100000000000ULL | ((e + 1023) << 52); 
+	x_2 = *(double *) &hex;
+
+	y = x_1 * x_2;
+
+	roundoff = 0;
+
+	// calculate exact roundoff error by gmp
+	mpf_t x_1_gmp, x_2_gmp, y_gmp, exact_result_gmp, roundoff_gmp;
+	mpf_init2( x_1_gmp, 256 );
+	mpf_init2( x_2_gmp, 256 );
+	mpf_init2( y_gmp, 256 );
+	mpf_init2( exact_result_gmp, 256 );
+	mpf_init2( roundoff_gmp, 256 );
+	mpf_init_set_d( x_1_gmp, x_1 );
+	mpf_init_set_d( x_2_gmp, x_2 );
+	mpf_init_set_d( y_gmp, y );
+	mpf_mul( exact_result_gmp, x_1_gmp, x_2_gmp );
+	mpf_sub( roundoff_gmp, exact_result_gmp, y_gmp );
+	roundoff_exact = mpf_get_d( roundoff_gmp );
+	mpf_clear( x_1_gmp );
+	mpf_clear( x_2_gmp );
+	mpf_clear( y_gmp );
+	mpf_clear( exact_result_gmp );
+	mpf_clear( roundoff_gmp );
+
+	// roundoff test
+	printf( "* mul w/o roundoff error in float number arithmetic:\n" );
+	printf( "x_1         =%.15le (%s)\n", x_1, get_double_bit_str(x_1) );
+	printf( "x_2         =%.15le (%s)\n", x_2, get_double_bit_str(x_2) );
+	printf( "x_1 * x_2   =%.15le (%s)\n", y, get_double_bit_str(y) );
+	printf( "roundoff    =%.15le (%s)\n", roundoff, get_double_bit_str(roundoff) );
+	printf( "roundoff_gmp=%.15le (%s)\n", roundoff_exact, get_double_bit_str(roundoff_exact) );
+	printf( "\n" );
+
+	// round off (truncate bit |10001, G=1 R=0 S=1, error=1|00000-|10001=|01111)
+	e = 10;
+	hex = 0x0000000000001100ULL | ((e + 1023) << 52); 
+	x_1 = *(double *) &hex;
+
+	e = -5;
+	hex = 0x0000008000000000ULL | ((e + 1023) << 52); 
+	x_2 = *(double *) &hex;
+
+	y = x_1 * x_2;
+
+	e = 5 - 52 - 2;
+	hex = (0x800e000000000000ULL) | ((e + 1023) << 52); 
+	roundoff = *(double *) &hex;
+
+	// calculate exact roundoff error by gmp
+	mpf_init2( x_1_gmp, 256 );
+	mpf_init2( x_2_gmp, 256 );
+	mpf_init2( y_gmp, 256 );
+	mpf_init2( exact_result_gmp, 256 );
+	mpf_init2( roundoff_gmp, 256 );
+	mpf_init_set_d( x_1_gmp, x_1 );
+	mpf_init_set_d( x_2_gmp, x_2 );
+	mpf_init_set_d( y_gmp, y );
+	mpf_mul( exact_result_gmp, x_1_gmp, x_2_gmp );
+	mpf_sub( roundoff_gmp, exact_result_gmp, y_gmp );
+	roundoff_exact = mpf_get_d( roundoff_gmp );
+	mpf_clear( x_1_gmp );
+	mpf_clear( x_2_gmp );
+	mpf_clear( y_gmp );
+	mpf_clear( exact_result_gmp );
+	mpf_clear( roundoff_gmp );
+
+	// roundoff test
+	printf( "* mul w/ roundoff error in float number arithmetic (GRS=101):\n" );
+	printf( "x_1         =%.15le (%s)\n", x_1, get_double_bit_str(x_1) );
+	printf( "x_2         =%.15le (%s)\n", x_2, get_double_bit_str(x_2) );
+	printf( "x_1 * x_2   =%.15le (%s)\n", y, get_double_bit_str(y) );
+	printf( "roundoff    =%.15le (%s)\n", roundoff, get_double_bit_str(roundoff) );
+	printf( "roundoff_gmp=%.15le (%s)\n", roundoff_exact, get_double_bit_str(roundoff_exact) );
+	printf( "\n" );
+
+	// test internal use 106 bit to store immediate result (truncate bit |10000, G=1 R=0 S=0, error=0|00000-|10000=|10000)
+	e = 10;
+	hex = 0x0000000000001000ULL | ((e + 1023) << 52); 
+	x_1 = *(double *) &hex;
+
+	e = -5;
+	hex = 0x0000008000000000ULL | ((e + 1023) << 52); 
+	x_2 = *(double *) &hex;
+
+	y = x_1 * x_2;
+
+	e = 5 - 52 - 1;
+	hex = (0x0000000000000000ULL) | ((e + 1023) << 52); 
+	roundoff = *(double *) &hex;
+
+	// calculate exact roundoff error by gmp
+	mpf_init2( x_1_gmp, 256 );
+	mpf_init2( x_2_gmp, 256 );
+	mpf_init2( y_gmp, 256 );
+	mpf_init2( exact_result_gmp, 256 );
+	mpf_init2( roundoff_gmp, 256 );
+	mpf_init_set_d( x_1_gmp, x_1 );
+	mpf_init_set_d( x_2_gmp, x_2 );
+	mpf_init_set_d( y_gmp, y );
+	mpf_mul( exact_result_gmp, x_1_gmp, x_2_gmp );
+	mpf_sub( roundoff_gmp, exact_result_gmp, y_gmp );
+	roundoff_exact = mpf_get_d( roundoff_gmp );
+	mpf_clear( x_1_gmp );
+	mpf_clear( x_2_gmp );
+	mpf_clear( y_gmp );
+	mpf_clear( exact_result_gmp );
+	mpf_clear( roundoff_gmp );
+
+	// roundoff test
+	printf( "* mul w/ roundoff error in float number arithmetic (GRS=100):\n" );
+	printf( "x_1         =%.15le (%s)\n", x_1, get_double_bit_str(x_1) );
+	printf( "x_2         =%.15le (%s)\n", x_2, get_double_bit_str(x_2) );
+	printf( "x_1 * x_2   =%.15le (%s)\n", y, get_double_bit_str(y) );
+	printf( "roundoff    =%.15le (%s)\n", roundoff, get_double_bit_str(roundoff) );
+	printf( "roundoff_gmp=%.15le (%s)\n", roundoff_exact, get_double_bit_str(roundoff_exact) );
+	printf( "\n" );
+
+	// test internal use 106 bit to store immediate result (truncate bit 1|10000, G=1 R=0 S=0, error=10|00000-1|10000=|10000)
+	e = 10;
+	hex = 0x0000000000003000ULL | ((e + 1023) << 52); 
+	x_1 = *(double *) &hex;
+
+	e = -5;
+	hex = 0x0000008000000000ULL | ((e + 1023) << 52); 
+	x_2 = *(double *) &hex;
+
+	y = x_1 * x_2;
+
+	e = 5 - 52 - 1;
+	hex = (0x8000000000000000ULL) | ((e + 1023) << 52); 
+	roundoff = *(double *) &hex;
+
+	// calculate exact roundoff error by gmp
+	mpf_init2( x_1_gmp, 256 );
+	mpf_init2( x_2_gmp, 256 );
+	mpf_init2( y_gmp, 256 );
+	mpf_init2( exact_result_gmp, 256 );
+	mpf_init2( roundoff_gmp, 256 );
+	mpf_init_set_d( x_1_gmp, x_1 );
+	mpf_init_set_d( x_2_gmp, x_2 );
+	mpf_init_set_d( y_gmp, y );
+	mpf_mul( exact_result_gmp, x_1_gmp, x_2_gmp );
+	mpf_sub( roundoff_gmp, exact_result_gmp, y_gmp );
+	roundoff_exact = mpf_get_d( roundoff_gmp );
+	mpf_clear( x_1_gmp );
+	mpf_clear( x_2_gmp );
+	mpf_clear( y_gmp );
+	mpf_clear( exact_result_gmp );
+	mpf_clear( roundoff_gmp );
+
+	// roundoff test
+	printf( "* mul w/ roundoff error in float number arithmetic (GRS=100 round to even):\n" );
+	printf( "x_1         =%.15le (%s)\n", x_1, get_double_bit_str(x_1) );
+	printf( "x_2         =%.15le (%s)\n", x_2, get_double_bit_str(x_2) );
+	printf( "x_1 * x_2   =%.15le (%s)\n", y, get_double_bit_str(y) );
+	printf( "roundoff    =%.15le (%s)\n", roundoff, get_double_bit_str(roundoff) );
+	printf( "roundoff_gmp=%.15le (%s)\n", roundoff_exact, get_double_bit_str(roundoff_exact) );
 	printf( "\n" );
 }
 
@@ -476,6 +663,8 @@ int main ( int argc, char **argv )
 	roundoff_guard_bit_test();
 
 	add_roundoff_test();
+
+	mul_roundoff_test();
 
 	return EXIT_SUCCESS;
 }
