@@ -14,6 +14,7 @@ void denormal_number_test ();
 void roundoff_guard_bit_test();
 void add_roundoff_test();
 void mul_roundoff_test();
+void div_roundoff_test();
 
 char *get_double_bit_str( double x ) 
 {
@@ -655,6 +656,65 @@ void mul_roundoff_test ()
 	printf( "\n" );
 }
 
+void div_roundoff_test ()
+{
+	uint64_t e;
+	uint64_t hex;
+	double x_1;
+	double x_2;
+	double y;
+	double roundoff;
+	double roundoff_exact;
+	double eps;
+
+	printf( "===========================================\n" );
+	printf( "div roundoff test\n" );
+	printf( "===========================================\n" );
+
+	// round off (truncate bit |010101..., G=0 R=1 S=1)
+	e = 0;
+	hex = 0x0000000000000000ULL | ((e + 1023) << 52); 
+	x_1 = *(double *) &hex;
+
+	e = 1;
+	hex = 0x0008000000000000ULL | ((e + 1023) << 52); 
+	x_2 = *(double *) &hex;
+
+	y = x_1 / x_2;
+
+	e = -56;
+	hex = (0x0005555555555555ULL) | ((e + 1023) << 52); 
+	roundoff = *(double *) &hex;
+
+	// calculate exact roundoff error by gmp
+	mpf_t x_1_gmp, x_2_gmp, y_gmp, exact_result_gmp, roundoff_gmp;
+	mpf_init2( x_1_gmp, 256 );
+	mpf_init2( x_2_gmp, 256 );
+	mpf_init2( y_gmp, 256 );
+	mpf_init2( exact_result_gmp, 256 );
+	mpf_init2( roundoff_gmp, 256 );
+	mpf_init_set_d( x_1_gmp, x_1 );
+	mpf_init_set_d( x_2_gmp, x_2 );
+	mpf_init_set_d( y_gmp, y );
+	mpf_div( exact_result_gmp, x_1_gmp, x_2_gmp );
+	mpf_sub( roundoff_gmp, exact_result_gmp, y_gmp );
+	roundoff_exact = mpf_get_d( roundoff_gmp );
+	mpf_clear( x_1_gmp );
+	mpf_clear( x_2_gmp );
+	mpf_clear( y_gmp );
+	mpf_clear( exact_result_gmp );
+	mpf_clear( roundoff_gmp );
+
+	// roundoff test
+	printf( "* add roundoff error in float number arithmetic (GRS=011):\n" );
+	printf( "x_1         =%.15le (%s)\n", x_1, get_double_bit_str(x_1) );
+	printf( "x_2         =%.15le (%s)\n", x_2, get_double_bit_str(x_2) );
+	printf( "x_1 / x_2   =%.15le (%s)\n", y, get_double_bit_str(y) );
+	printf( "roundoff    =%.15le (%s)\n", roundoff, get_double_bit_str(roundoff) );
+	printf( "roundoff_gmp=%.15le (%s)\n", roundoff_exact, get_double_bit_str(roundoff_exact) );
+	printf( "\n" );
+}
+
 
 int main ( int argc, char **argv )
 {
@@ -662,9 +722,9 @@ int main ( int argc, char **argv )
 
 	roundoff_guard_bit_test();
 
-	add_roundoff_test();
-
 	mul_roundoff_test();
+
+	div_roundoff_test();
 
 	return EXIT_SUCCESS;
 }
